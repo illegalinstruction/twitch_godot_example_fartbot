@@ -1,0 +1,355 @@
+[gd_scene load_steps=21 format=2]
+
+[ext_resource path="res://sprites/ball.png" type="Texture" id=1]
+[ext_resource path="res://sprites/paddle.png" type="Texture" id=2]
+[ext_resource path="res://sounds/lose.wav" type="AudioStream" id=3]
+[ext_resource path="res://sounds/point.wav" type="AudioStream" id=4]
+[ext_resource path="res://sounds/wallbounce.wav" type="AudioStream" id=5]
+[ext_resource path="res://new_dynamicfont.tres" type="DynamicFont" id=6]
+[ext_resource path="res://sprites/ball-highlight.png" type="Texture" id=7]
+[ext_resource path="res://sounds/rude_4.wav" type="AudioStream" id=8]
+[ext_resource path="res://sounds/rude_5.wav" type="AudioStream" id=9]
+[ext_resource path="res://sounds/rude_0.wav" type="AudioStream" id=10]
+[ext_resource path="res://sounds/rude_3.wav" type="AudioStream" id=11]
+[ext_resource path="res://sounds/rude_1.wav" type="AudioStream" id=12]
+[ext_resource path="res://sounds/rude_2.wav" type="AudioStream" id=13]
+[ext_resource path="res://sounds/rude_6.wav" type="AudioStream" id=14]
+[ext_resource path="res://sounds/rude_8.wav" type="AudioStream" id=15]
+[ext_resource path="res://sounds/rude_7.wav" type="AudioStream" id=16]
+
+[sub_resource type="GDScript" id=1]
+script/source = "extends Node2D
+
+################################################################################
+# _                                                   
+#| | _____  ___ _ __  _   _   _   _ _ __  _ __  _   _ 
+#| |/ / _ \\/ _ \\ '_ \\| | | | | | | | '_ \\| '_ \\| | | |
+#|   <  __/  __/ |_) | |_| | | |_| | |_) | |_) | |_| |
+#|_|\\_\\___|\\___| .__/ \\__, |  \\__,_| .__/| .__/ \\__, |
+#              |_|    |___/        |_|   |_|    |___/ 
+# playable by twitch audiences
+
+var grav_accel : float = 0.005;
+
+################################################################################
+
+var curr_score : int;
+var best_score : int;
+
+#debug
+var noise_timer : int = 240; 
+var chat_timer : int = 1250;
+
+################################################################################
+
+func prepare_new_game():
+	# reset paddle
+	$paddle.position.x 	= get_viewport().size.x / 2.0;
+	$paddle.position.y 	= get_viewport().size.y - 20.0;
+	
+	$ball.position.x 	= get_viewport().size.x / 2.0;
+	$ball.position.y 	= 64.0;
+	$ball.veloc.x    	= 0#rand_range(-2.5,2.5);
+	$ball.veloc.y    	= 0#-0.00000125;
+	$ball.rot_speed		= $ball.veloc.x / PI / 10.0;
+	grav_accel = 0.005
+	curr_score = 0;
+	return;
+
+################################################################################
+
+func _ready():
+	# hide this window offscreen
+	#OS.set_window_position(Vector2 (-1920,-1080));
+	
+	prepare_new_game();
+	set_process(true);
+
+################################################################################
+
+func _process(_ignore):
+	# update hud:
+	if($curr_score != null):
+		$curr_score.text = \"Score: \" +str(curr_score);
+	if($best_score != null):
+		$best_score.text = \"Best this session: \" + str(best_score);
+
+	# quit the app cleanly.
+	# the weird key combo is to prevent accidental quitting
+	# whilst on-stream
+	if (Input.is_key_pressed(KEY_ESCAPE)):
+		if (Input.is_key_pressed(KEY_TAB)):
+			if (Input.is_key_pressed(KEY_SHIFT)):
+				get_tree().quit();
+		
+	# did the ball go out of bounds?
+	
+	# left or right
+	if ($ball.position.x < 0):
+		$ball.position.x 	= 0;
+		$ball.veloc.x 		= -$ball.veloc.x;
+		$ball.rot_speed		= $ball.veloc.x / PI / rand_range(8.0,11.0);
+		$wallbounce.play();
+
+	if ($ball.position.x > get_viewport().size.x):
+		$ball.position.x 	= get_viewport().size.x;
+		$ball.veloc.x 		= -$ball.veloc.x;
+		$ball.rot_speed		= $ball.veloc.x / PI / rand_range(8.0,11.0);
+		$wallbounce.play();
+	
+	# off bottom
+	if ($ball.position.y > get_viewport().size.y):
+		if (curr_score > best_score):
+			best_score = curr_score;
+			
+		$lose.play();
+		prepare_new_game();
+		
+	# did the ball touch the paddle?
+
+	if ($paddle.get_rect().has_point($ball.position - $paddle.position)):
+		$ball.veloc.x = ($ball.position.x - $paddle.position.x) / 16.0 + rand_range(-0.001,0.001);
+		$ball.rot_speed		= $ball.veloc.x / PI / rand_range(8.0,11.0);
+		$ball.position.y -= 2;
+		$ball.veloc.y = -$ball.veloc.y;
+		$point.play();
+		curr_score += 1;
+	
+		# turn the screw on the players a bit :)
+		grav_accel += rand_range(0,0.00005);
+		
+	# move the sound players to match where the ball is
+	$point.position.x = $ball.position.x;
+	$wallbounce.position.x = $ball.position.x;
+	$wallbounce.pitch_scale = 1 - ($ball.position.y / 2000.0);
+	
+	noise_timer -= 1;
+	if (noise_timer < 0):
+		noise_timer = 0;
+
+	chat_timer -= 1;
+	if (chat_timer < 0):
+		$twitch_integration.chat(\"FartBot 0.02: standing by! type '!help' for a list of commands.\");
+		chat_timer = int(rand_range(1400,1950));
+
+	return;
+
+################################################################################
+
+func chat_message(sender_data, message):
+	if(message == '!left'):
+		$paddle.position.x -= 29.75;
+		$paddle.position.x += rand_range(-0,02.02);
+	if(message == '!right'):
+		$paddle.position.x += 29.75;
+		$paddle.position.x += rand_range(-0,02.02);
+	if(str(message).to_lower() == '!help'):
+		$twitch_integration.chat(\"FartBot 0.02: '!noise' does what it says on the tin\");
+		$twitch_integration.chat(\"FartBot 0.02: '!help' displays this message\");
+	if(str(message).to_lower() == '!noise') or (str(message).to_lower() == '!fart'):
+		if (noise_timer < 1):
+			var which_sound = int(rand_range(0,8.35));
+			$playing_snd.text = (\"Playing sound #\" + str(which_sound + 1) + \" at \" + sender_data.user + \"'s request.\");
+			$playing_snd.margin_top = -36;
+			
+			if (which_sound == 0):
+				$rude_noise_0.play();
+			if (which_sound == 1):
+				$rude_noise_1.play();
+			if (which_sound == 2):
+				$rude_noise_2.play();
+			if (which_sound == 3):
+				$rude_noise_3.play();
+			if (which_sound == 4):
+				$rude_noise_4.play();
+			if (which_sound == 5):
+				$rude_noise_5.play();
+			if (which_sound == 6):
+				$rude_noise_6.play();
+			if (which_sound == 7):
+				$rude_noise_7.play();
+			if (which_sound == 8):
+				$rude_noise_8.play();
+			
+			noise_timer = rand_range(600,1000);
+		else:
+			$twitch_integration.chat(\"FartBot 0.02: Gimme a sec, lemme eat more chili.\");
+
+	# keep paddle in screen	
+	if ($paddle.position.x < ($paddle.get_rect().size.x / 2.0)):
+		$paddle.position.x = ($paddle.get_rect().size.x / 2.0);
+
+	if ($paddle.position.x > (get_viewport().size.x -$paddle.get_rect().size.x / 2.0)):
+		$paddle.position.x = (get_viewport().size.x -$paddle.get_rect().size.x / 2.0);
+
+	return;
+"
+
+[sub_resource type="GDScript" id=3]
+script/source = "extends Gift
+
+func _ready():
+	# read api key from file
+	var authfile := File.new()
+	authfile.open(\"./secrets\", File.READ)
+	var botname := authfile.get_line()
+	var token := authfile.get_line()
+	var initial_channel = authfile.get_line()
+	
+	# connect
+	connect_to_twitch()
+	yield(self, \"twitch_connected\")
+
+	# auth
+	authenticate_oauth(botname, token)
+	if(yield(self, \"login_attempt\") == false):
+		print(\"Invalid username or token.\")
+		get_tree().quit();
+	join_channel(initial_channel)
+
+	# register callbacks
+	connect(\"chat_message\", get_parent(), \"chat_message\");
+	return;
+"
+
+[sub_resource type="GDScript" id=2]
+script/source = "extends Sprite
+
+################################################################################
+
+var veloc : Vector2;
+var rot_speed : float;
+var bounce_timer: int = 0;
+
+################################################################################
+
+# Called when the node enters the scene tree for the first time.
+func _ready():
+	bounce_timer = 0;
+	set_process(true);
+
+################################################################################
+
+# Called every frame. 'delta' is the elapsed time since the previous frame.
+func _process(delta):
+	#veloc.y = veloc.y + get_parent().get(\"grav_accel\");
+	position = position + veloc;
+	$ball_diffuse.rotate(rot_speed);
+	if (bounce_timer > 0):
+		scale.y += (sin(bounce_timer/250.0)) * (bounce_timer/4.0);
+		bounce_timer -= 1;
+	else:
+		scale.y = 1.0;
+	return;
+
+################################################################################
+"
+
+[sub_resource type="GDScript" id=4]
+script/source = "extends Label
+
+
+# Declare member variables here. Examples:
+# var a = 2
+# var b = \"text\"
+
+
+# Called when the node enters the scene tree for the first time.
+func _ready():
+	set_process(true);
+
+
+# Called every frame. 'delta' is the elapsed time since the previous frame.
+func _process(delta):
+	margin_top += 3.275;
+
+	if (margin_top > 2000):
+		margin_top = 2000;
+"
+
+[node name="game_root" type="Node2D"]
+script = SubResource( 1 )
+
+[node name="twitch_integration" type="Node" parent="."]
+script = SubResource( 3 )
+
+[node name="paddle" type="Sprite" parent="."]
+visible = false
+texture = ExtResource( 2 )
+
+[node name="ball" type="Sprite" parent="."]
+visible = false
+script = SubResource( 2 )
+
+[node name="ball_diffuse" type="Sprite" parent="ball"]
+texture = ExtResource( 1 )
+
+[node name="ball_shade" type="Sprite" parent="ball"]
+texture = ExtResource( 7 )
+
+[node name="point" type="AudioStreamPlayer2D" parent="."]
+visible = false
+stream = ExtResource( 4 )
+
+[node name="lose" type="AudioStreamPlayer" parent="."]
+stream = ExtResource( 3 )
+volume_db = -54.178
+
+[node name="wallbounce" type="AudioStreamPlayer2D" parent="."]
+visible = false
+stream = ExtResource( 5 )
+
+[node name="best_score" type="Label" parent="."]
+visible = false
+margin_left = 31.0
+margin_top = 623.0
+margin_right = 278.0
+margin_bottom = 656.0
+custom_fonts/font = ExtResource( 6 )
+text = "placeholder"
+
+[node name="curr_score" type="Label" parent="."]
+visible = false
+margin_left = 33.0
+margin_top = 558.0
+margin_right = 262.0
+margin_bottom = 593.0
+custom_fonts/font = ExtResource( 6 )
+text = "placeholder"
+
+[node name="playing_snd" type="Label" parent="."]
+margin_left = 77.0
+margin_top = 734.0
+margin_right = 307.0
+margin_bottom = 767.0
+custom_colors/font_color = Color( 0.960784, 0.623529, 0.266667, 1 )
+custom_fonts/font = ExtResource( 6 )
+text = "Playing sound"
+script = SubResource( 4 )
+
+[node name="rude_noise_0" type="AudioStreamPlayer" parent="."]
+stream = ExtResource( 10 )
+
+[node name="rude_noise_1" type="AudioStreamPlayer" parent="."]
+stream = ExtResource( 12 )
+
+[node name="rude_noise_2" type="AudioStreamPlayer" parent="."]
+stream = ExtResource( 13 )
+
+[node name="rude_noise_3" type="AudioStreamPlayer" parent="."]
+stream = ExtResource( 11 )
+
+[node name="rude_noise_4" type="AudioStreamPlayer" parent="."]
+stream = ExtResource( 8 )
+
+[node name="rude_noise_5" type="AudioStreamPlayer" parent="."]
+stream = ExtResource( 9 )
+
+[node name="rude_noise_6" type="AudioStreamPlayer" parent="."]
+stream = ExtResource( 14 )
+
+[node name="rude_noise_7" type="AudioStreamPlayer" parent="."]
+stream = ExtResource( 16 )
+
+[node name="rude_noise_8" type="AudioStreamPlayer" parent="."]
+stream = ExtResource( 15 )

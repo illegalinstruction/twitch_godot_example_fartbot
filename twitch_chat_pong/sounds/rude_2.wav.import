@@ -1,0 +1,21 @@
+[remap]
+
+importer="wav"
+type="AudioStreamSample"
+path="res://.import/rude_2.wav-abefabd309e24d2c43e5e374d8b17b48.sample"
+
+[deps]
+
+source_file="res://sounds/rude_2.wav"
+dest_files=[ "res://.import/rude_2.wav-abefabd309e24d2c43e5e374d8b17b48.sample" ]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop=false
+compress/mode=0
